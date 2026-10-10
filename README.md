@@ -4,6 +4,45 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/meloay/sub-hub)
 
+## 界面预览
+
+以下截图使用本机演示数据，所有节点、订阅名称和路径均为虚构，不包含真实账号或节点凭据。
+
+### 订阅管理
+
+搜索、普通／组合筛选、多客户端订阅链接，以及对齐的常用操作按钮。
+
+![订阅管理浅色界面](docs/images/dashboard.jpg)
+
+### 组合订阅编辑
+
+在卡片内展开成员列表，一行显示一个来源，可勾选成员并拖动调整合并顺序。
+
+![组合订阅成员编辑](docs/images/combination.jpg)
+
+<details>
+<summary>查看更多：节点列表、删除确认框、手机端深色模式</summary>
+
+### 节点列表
+
+展示协议类型、国家／地区命名与旗帜，并提供编辑、复制、删除和批量操作。
+
+![节点列表和协议筛选](docs/images/nodes.jpg)
+
+### 页面内确认框
+
+危险操作使用统一的页面内确认框，不再弹出浏览器原生确认窗口。
+
+![自定义删除确认框](docs/images/confirmation.jpg)
+
+### 手机端深色模式
+
+双栏订阅入口与适合触屏的操作布局，支持深浅主题切换。
+
+<img src="docs/images/mobile-dark.jpg" alt="手机端深色模式" width="320">
+
+</details>
+
 ## 一键部署到自己的账号
 
 点击上方按钮，登录自己的 Cloudflare 与 GitHub 账号，在引导页面设置项目名称、管理员用户名与强密码。Cloudflare 会复制仓库、创建并绑定独立 D1 数据库，并通过部署命令自动初始化表结构和发布 Worker；无需使用本项目维护者的账号或令牌。
