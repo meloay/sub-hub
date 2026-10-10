@@ -62,7 +62,6 @@ const MAX_JSON_BODY_BYTES = 1024 * 1024;
 const MAX_BATCH_NODES = 500;
 const MAX_NODE_LINK_LENGTH = 16 * 1024;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-const TURNSTILE_EXPECTED_HOSTNAME = 'example.com';
 const TURNSTILE_LOGIN_ACTION = 'login';
 function isValidConverterBackend(value) { return CONVERTER_BACKENDS.some(item => item.id === value); }
 function htmlHeaders() { return { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()' }; }
@@ -1226,7 +1225,7 @@ async function generateSecureSessionToken(username, env) {
 }
 
 // 处理登录请求
-async function verifyTurnstileToken(request, secretKey, token) {
+async function verifyTurnstileToken(request, secretKey, token, expectedHostname = new URL(request.url).hostname) {
   if (typeof token !== 'string' || token.length === 0 || token.length > 2048) {
     console.warn(JSON.stringify({ event: 'turnstile_rejected', reason: 'invalid_token_shape' }));
     return false;
@@ -1251,7 +1250,7 @@ async function verifyTurnstileToken(request, secretKey, token) {
     }
     const result = await response.json();
     const isValid = result.success === true
-      && result.hostname === TURNSTILE_EXPECTED_HOSTNAME
+      && result.hostname === expectedHostname
       && result.action === TURNSTILE_LOGIN_ACTION;
     if (!isValid) {
       console.warn(JSON.stringify({
@@ -1276,7 +1275,7 @@ async function verifyTurnstileToken(request, secretKey, token) {
 async function handleLogin(request, env, adminUsername, adminPassword, adminPath) {
   const { username, password, turnstile_token: turnstileToken } = await request.json();
 
-  const isHuman = await verifyTurnstileToken(request, env.TURNSTILE_SECRET_KEY, turnstileToken);
+  const isHuman = await verifyTurnstileToken(request, env.TURNSTILE_SECRET_KEY, turnstileToken, env.TURNSTILE_HOSTNAME || new URL(request.url).hostname);
   if (!isHuman) {
     return new Response(JSON.stringify({
       success: false,

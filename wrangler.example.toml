@@ -6,8 +6,10 @@ compatibility_date = "2026-01-10"
 ADMIN_PATH = "admin"
 # 在 Cloudflare 配置的公开站点密钥，替换此占位符。
 TURNSTILE_SITE_KEY = "YOUR_TURNSTILE_SITE_KEY"
+TURNSTILE_HOSTNAME = ""
 
 [[d1_databases]]
 binding = "DB"
 database_name = "sub-hub"
 database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "deploy-migrations"

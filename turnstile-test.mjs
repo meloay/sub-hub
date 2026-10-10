@@ -47,4 +47,12 @@ verificationResult = { success: true, hostname: 'example.com', action: 'other' }
 assert.equal(await context.turnstileTestApi.verifyTurnstileToken(request, 'secret', 'token'), false);
 assert.equal(await context.turnstileTestApi.verifyTurnstileToken(request, 'secret', ''), false);
 
+// 模板不固定维护者域名：匹配新用户实际访问域名，且可显式限制域名。
+const customRequest = new Request('https://my-sub.example.net/admin/login');
+verificationResult = { success: true, hostname: 'my-sub.example.net', action: 'login' };
+assert.equal(await context.turnstileTestApi.verifyTurnstileToken(customRequest, 'secret', 'token'), true);
+assert.equal(await context.turnstileTestApi.verifyTurnstileToken(customRequest, 'secret', 'token', 'locked.example.net'), false);
+verificationResult = { success: true, hostname: 'example.com', action: 'login' };
+assert.equal(await context.turnstileTestApi.verifyTurnstileToken(customRequest, 'secret', 'token'), false);
+
 console.log(JSON.stringify({ passed: true, htmlBytes: html.length }, null, 2));

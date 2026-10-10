@@ -2,6 +2,25 @@
 
 基于 Cloudflare Workers + D1 的代理节点订阅管理器，提供网页管理、组合订阅、自动命名与多客户端输出。
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/meloay/sub-hub)
+
+## 一键部署到自己的账号
+
+点击上方按钮，登录自己的 Cloudflare 与 GitHub 账号，在引导页面设置项目名称、管理员用户名与强密码。Cloudflare 会复制仓库、创建并绑定独立 D1 数据库，并通过部署命令自动初始化表结构和发布 Worker；无需使用本项目维护者的账号或令牌。
+
+**Turnstile 需要使用你自己的站点密钥，不能自动替你创建。** 如果已经知道最终使用的自定义域名，可先在 Turnstile 创建站点并填入部署页面的 `TURNSTILE_SITE_KEY` 和 `TURNSTILE_SECRET_KEY`。如果暂时不知道自动分配的 workers.dev 域名，请在部署完成后：
+
+1. 在 Worker 的 Domains & Routes 找到实际访问域名。
+2. 在 Cloudflare → Turnstile 创建站点，选择 Managed，将该域名加入允许列表。
+3. 在 Worker 的 Variables and Secrets 中设置 `TURNSTILE_SITE_KEY`（变量）和 `TURNSTILE_SECRET_KEY`（密钥），保存并部署配置。
+4. 访问 `https://你的域名/admin` 登录。管理路径以 `ADMIN_PATH` 配置为准。
+
+未配置管理员凭据或 Turnstile 时，服务会拒绝提供正常访问（503），不会退回默认密码或跳过验证。域名校验自动严格匹配当前访问主机名，无需改源码；可用 `TURNSTILE_HOSTNAME` 额外固定一个主机名。
+
+一键部署以 [Cloudflare 官方部署按钮](https://developers.cloudflare.com/workers/platform/deploy-buttons/)为基础。首次接入需由使用者确认账号授权与配置，因此不是完全无需输入的部署。不要把数据库选为已有生产库：`deploy-migrations/` 是新部署的完整初始化迁移；旧版本升级需另行核对表结构。
+
+部署命令应保持 `npm run deploy`，它会先应用 D1 迁移再发布，迁移失败则停止发布。之后通过自己的复制仓库更新代码时，可以沿用 Cloudflare Workers Builds 自动部署。
+
 ## 原作与致谢
 
 本项目是在 **shiyi11yi** 的 **Sub-Hub** 基础上修改而来，并非从零原创。感谢原作者的工作，以及保留历史代码的贡献者。
@@ -30,7 +49,7 @@
 1. 在 Cloudflare 创建一个 Worker 和 D1 数据库，将 D1 绑定名设置为 `DB`。
 2. 在 D1 控制台执行 [schema.sql](schema.sql)。这是完整的新库结构，**执行后不需要再执行 migrations**。
 3. 创建 Turnstile 站点，将实际使用的域名加入允许列表，保存 Site Key 与 Secret Key。
-4. 修改 `sub-hub-worker.js` 顶部的 `TURNSTILE_EXPECTED_HOSTNAME`：将 `example.com` 改为自己的实际域名，只填主机名、不带协议或路径。该检查不可简单删除，否则会降低验证强度。
+4. 将实际域名加入 Turnstile 允许列表。域名验证默认严格匹配访问请求的主机名；如需固定域名，可设置 `TURNSTILE_HOSTNAME`，只填主机名、不带协议或路径。
 5. 设置 Worker 绑定：
 
 | 名称 | 类型 | 用途 |
@@ -41,20 +60,22 @@
 | `ADMIN_PASSWORD` | 密钥 | 强密码，无默认凭据 |
 | `TURNSTILE_SITE_KEY` | 变量 | 公开站点密钥 |
 | `TURNSTILE_SECRET_KEY` | 密钥 | 服务端验证密钥 |
+| `TURNSTILE_HOSTNAME` | 可选变量 | 固定验证主机名；留空自动匹配 |
 
 6. 将 `sub-hub-worker.js` 上传到 Worker 并部署。通过 HTTPS 访问 `https://你的域名/admin`（管理路径以实际配置为准）。
 
-也可以使用 Wrangler：将 `wrangler.example.toml` 复制为 `wrangler.toml`，填入数据库 ID、站点密钥及管理路径，然后：
+也可以使用 Wrangler：安装依赖，在 `wrangler.jsonc` 中填入自己创建的数据库 ID、站点密钥及管理路径，然后：
 
 ```sh
+npm ci
 npx wrangler login
 npx wrangler secret put ADMIN_USERNAME
 npx wrangler secret put ADMIN_PASSWORD
 npx wrangler secret put TURNSTILE_SECRET_KEY
-npx wrangler deploy
+npm run deploy
 ```
 
-已有数据库更新前先备份，再核对实际表结构。`migrations/` 仅包含本修改版本新增字段和组合关系的增量迁移，不是任意历史版本的完整升级方案；不能无条件重复执行。
+若已经手动执行 `schema.sql`，则直接运行 `npx wrangler deploy`。已有数据库更新前先备份，再核对实际表结构。`migrations/` 仅包含历史新增字段和组合关系的增量迁移，不是任意历史版本的完整升级方案；不能无条件重复执行。Wrangler 自动部署使用的是独立的 `deploy-migrations/`，不会执行这些历史 ALTER TABLE 文件。
 
 ## 订阅输出
 
@@ -80,4 +101,4 @@ npm run preview
 
 ## 安全发布说明
 
-仓库不包含 Cloudflare/GitHub 令牌、账号专用发布脚本、数据库导出、线上 Turnstile 配置、真实管理员凭据或本机登录文件。不要将 `.dev.vars`、`.env`、`wrangler.toml` 或数据库备份提交到公开仓库。
+仓库不包含 Cloudflare/GitHub 令牌、账号专用发布脚本、数据库导出、线上 Turnstile 配置、真实管理员凭据或本机登录文件。`wrangler.jsonc` 是不含账号 ID 或真实资源 ID 的公开模板，`.dev.vars.example` 只声明空白密钥。不要将真实密钥写进配置或提交 `.dev.vars`、`.env` 及数据库备份。

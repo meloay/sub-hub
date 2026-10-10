@@ -1,0 +1,4 @@
+# 仅声明密钥名称，不提供默认登录凭据。部署时由用户填写。
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
+TURNSTILE_SECRET_KEY=
