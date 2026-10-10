@@ -1,0 +1,12 @@
+{
+  "name": "sub-hub-enhanced",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Workers + D1 subscription manager based on Sub-Hub",
+  "scripts": {
+    "test": "node --check sub-hub-worker.js && node rename-test.mjs && node combination-test.mjs && node admin-ui-test.mjs && node turnstile-test.mjs && node priority-fixes-test.mjs && node remaining-fixes-test.mjs && node confirmation-dialog-test.mjs",
+    "preview": "node ui-preview.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

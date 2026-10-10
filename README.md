@@ -1,0 +1,83 @@
+# Sub-Hub Enhanced
+
+基于 Cloudflare Workers + D1 的代理节点订阅管理器，提供网页管理、组合订阅、自动命名与多客户端输出。
+
+## 原作与致谢
+
+本项目是在 **shiyi11yi** 的 **Sub-Hub** 基础上修改而来，并非从零原创。感谢原作者的工作，以及保留历史代码的贡献者。
+
+- 原作者历史仓库：[shiyi11yi/Sub-Hub](https://github.com/shiyi11yi/Sub-Hub)（目前不可访问）。
+- 可查阅的历史备份：[kazami287/Sub-Hub](https://github.com/kazami287/Sub-Hub)，保留原作者提交记录。
+- 自动命名思路参考：[Keywos/rule](https://github.com/Keywos/rule)。未打包其原始脚本，不将其参考思路的署名视为转载授权。
+- 完整来源说明：[CREDITS.md](CREDITS.md)。
+
+未找到基础项目的明确许可证，本仓库不擅自将继承代码重新标记为 MIT、Apache 等许可。代码公开可查阅，不代表所有内容都已获得任意再分发授权；相关权利归原作者及各贡献者所有。
+
+## 主要改进
+
+- Mieru、WireGuard 节点识别及相关输出处理；保留 SS、VMess、Trojan、VLESS、SOCKS、Hysteria2、TUIC、Surge Snell 等原有处理。
+- 普通订阅与组合订阅：成员选择、顺序调整、去重、循环和嵌套检查。
+- 自动国家／地区命名、旗帜、分组排序；可按订阅开启，台湾地区使用中国旗帜。
+- 新订阅路径自动生成：名称规范化前缀 + 6 位字母数字，不修改已有路径。
+- Turnstile 登录验证、会话管理、请求边界检查。
+- 搜索与类型筛选、深浅主题、响应式布局、自定义确认对话框。
+- 回归测试与只读演示页面。
+
+协议识别不代表每个输出格式和每个客户端都支持该协议。尤其 Mieru、WireGuard、Snell 的支持取决于客户端和格式，请使用自己的客户端验证。
+
+## 全新部署
+
+1. 在 Cloudflare 创建一个 Worker 和 D1 数据库，将 D1 绑定名设置为 `DB`。
+2. 在 D1 控制台执行 [schema.sql](schema.sql)。这是完整的新库结构，**执行后不需要再执行 migrations**。
+3. 创建 Turnstile 站点，将实际使用的域名加入允许列表，保存 Site Key 与 Secret Key。
+4. 修改 `sub-hub-worker.js` 顶部的 `TURNSTILE_EXPECTED_HOSTNAME`：将 `example.com` 改为自己的实际域名，只填主机名、不带协议或路径。该检查不可简单删除，否则会降低验证强度。
+5. 设置 Worker 绑定：
+
+| 名称 | 类型 | 用途 |
+| --- | --- | --- |
+| `DB` | D1 | 数据库 |
+| `ADMIN_PATH` | 变量 | 管理路径，例如 `admin` |
+| `ADMIN_USERNAME` | 密钥 | 管理用户名 |
+| `ADMIN_PASSWORD` | 密钥 | 强密码，无默认凭据 |
+| `TURNSTILE_SITE_KEY` | 变量 | 公开站点密钥 |
+| `TURNSTILE_SECRET_KEY` | 密钥 | 服务端验证密钥 |
+
+6. 将 `sub-hub-worker.js` 上传到 Worker 并部署。通过 HTTPS 访问 `https://你的域名/admin`（管理路径以实际配置为准）。
+
+也可以使用 Wrangler：将 `wrangler.example.toml` 复制为 `wrangler.toml`，填入数据库 ID、站点密钥及管理路径，然后：
+
+```sh
+npx wrangler login
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put TURNSTILE_SECRET_KEY
+npx wrangler deploy
+```
+
+已有数据库更新前先备份，再核对实际表结构。`migrations/` 仅包含本修改版本新增字段和组合关系的增量迁移，不是任意历史版本的完整升级方案；不能无条件重复执行。
+
+## 订阅输出
+
+- `/<订阅路径>`：原始节点列表。
+- `/<订阅路径>/v2ray`：Base64 节点列表。
+- `/<订阅路径>/surge`：Surge 输出。
+- `/<订阅路径>/clash`：Clash 输出。
+
+订阅路径相当于访问凭据，获得链接的人可能读取节点连接信息，不要公开真实订阅地址。管理后台不应使用弱密码。
+
+管理页面另提供第三方转换后端链接。点击转换可能将订阅地址及节点信息交给所选后端，请仅使用可信服务；本地原生输出与第三方转换是不同的路径。
+
+## 开发与验证
+
+需要 Node.js 22 或更高版本；完整测试还需 Python 3（SQLite）及 Ruby（Psych YAML）。测试不连接线上数据库。
+
+```sh
+npm test
+npm run preview
+```
+
+预览地址为 `http://127.0.0.1:8789/sub`，仅使用虚构数据，拒绝所有修改请求，不用于生产部署。正式登录需要 HTTPS 和正确的 Turnstile 配置。
+
+## 安全发布说明
+
+仓库不包含 Cloudflare/GitHub 令牌、账号专用发布脚本、数据库导出、线上 Turnstile 配置、真实管理员凭据或本机登录文件。不要将 `.dev.vars`、`.env`、`wrangler.toml` 或数据库备份提交到公开仓库。
