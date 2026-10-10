@@ -63,6 +63,11 @@ const MAX_BATCH_NODES = 500;
 const MAX_NODE_LINK_LENGTH = 16 * 1024;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TURNSTILE_LOGIN_ACTION = 'login';
+function turnstileConfig(env) {
+  const siteKey = String(env.TURNSTILE_SITE_KEY || '').trim();
+  const secretKey = String(env.TURNSTILE_SECRET_KEY || '').trim();
+  return { siteKey, secretKey, enabled: Boolean(siteKey && secretKey), incomplete: Boolean(siteKey) !== Boolean(secretKey) };
+}
 function isValidConverterBackend(value) { return CONVERTER_BACKENDS.some(item => item.id === value); }
 function htmlHeaders() { return { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer', 'Permissions-Policy': 'camera=(), microphone=(), geolocation=()' }; }
 function subscriptionHeaders(contentType) { return { 'Content-Type': contentType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }; }
@@ -242,8 +247,12 @@ export default {
     const adminUsername = env.ADMIN_USERNAME;
     const adminPassword = env.ADMIN_PASSWORD;
 
-    if (!adminPath || !adminUsername || !adminPassword || !env.DB || !env.TURNSTILE_SITE_KEY || !env.TURNSTILE_SECRET_KEY) {
+    if (!adminPath || !adminUsername || !adminPassword || !env.DB) {
       return new Response('Service Unavailable', { status: 503 });
+    }
+    const turnstile = turnstileConfig(env);
+    if (turnstile.incomplete) {
+      return new Response('Turnstile configuration incomplete: configure both keys or remove both to disable.', { status: 503 });
     }
     if (url.search && !pathname.startsWith('/' + adminPath)) return new Response('Not Found', { status: 404 });
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
@@ -257,7 +266,7 @@ export default {
     // 处理登录页面请求
     if (pathname === `/${adminPath}/login`) {
       if (method === "GET") {
-        return serveLoginPage(adminPath, env.TURNSTILE_SITE_KEY);
+        return serveLoginPage(adminPath, turnstile.siteKey);
       } else if (method === "POST") {
         return handleLogin(request, env, adminUsername, adminPassword, adminPath);
       }
@@ -813,6 +822,7 @@ const SVG_ICONS = {
 
 // 提供登录页面HTML
 function serveLoginPage(adminPath, turnstileSiteKey) {
+  const turnstileEnabled = Boolean(turnstileSiteKey);
   const safeTurnstileSiteKey = escapeHtmlAttribute(turnstileSiteKey);
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -823,7 +833,7 @@ function serveLoginPage(adminPath, turnstileSiteKey) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  ${turnstileEnabled ? '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>' : ''}
   <style>
     :root {
       --bg-body: #050505;
@@ -1096,9 +1106,9 @@ function serveLoginPage(adminPath, turnstileSiteKey) {
           <input type="password" class="form-input" id="password" name="password" placeholder="输入密码" required autocomplete="current-password">
         </div>
 
-        <div class="turnstile-wrap">
+        ${turnstileEnabled ? `<div class="turnstile-wrap">
           <div class="cf-turnstile" data-sitekey="${safeTurnstileSiteKey}" data-theme="auto" data-action="${TURNSTILE_LOGIN_ACTION}"></div>
-        </div>
+        </div>` : ''}
 
         <button type="submit" class="btn-login" id="loginButton">
           ${SVG_ICONS.login}
@@ -1147,7 +1157,7 @@ function serveLoginPage(adminPath, turnstileSiteKey) {
       const loginButton = document.getElementById('loginButton');
       const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value || '';
 
-      if (!turnstileToken) {
+      if (${turnstileEnabled} && !turnstileToken) {
         alertMessage.textContent = '请先完成人机验证';
         alert.classList.add('show');
         return;
@@ -1275,7 +1285,9 @@ async function verifyTurnstileToken(request, secretKey, token, expectedHostname 
 async function handleLogin(request, env, adminUsername, adminPassword, adminPath) {
   const { username, password, turnstile_token: turnstileToken } = await request.json();
 
-  const isHuman = await verifyTurnstileToken(request, env.TURNSTILE_SECRET_KEY, turnstileToken, env.TURNSTILE_HOSTNAME || new URL(request.url).hostname);
+  const turnstile = turnstileConfig(env);
+  if (turnstile.incomplete) return new Response('Turnstile configuration incomplete', { status: 503 });
+  const isHuman = !turnstile.enabled || await verifyTurnstileToken(request, turnstile.secretKey, turnstileToken, env.TURNSTILE_HOSTNAME || new URL(request.url).hostname);
   if (!isHuman) {
     return new Response(JSON.stringify({
       success: false,

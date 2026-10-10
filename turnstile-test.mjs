@@ -55,4 +55,38 @@ assert.equal(await context.turnstileTestApi.verifyTurnstileToken(customRequest, 
 verificationResult = { success: true, hostname: 'example.com', action: 'login' };
 assert.equal(await context.turnstileTestApi.verifyTurnstileToken(customRequest, 'secret', 'token'), false);
 
-console.log(JSON.stringify({ passed: true, htmlBytes: html.length }, null, 2));
+// 未配置：页面不加载验证组件，正常密码登录；已配置：不能绕过验证。
+const baseEnv = { ADMIN_PATH: 'admin', ADMIN_USERNAME: 'demo', ADMIN_PASSWORD: 'strong-test-password', DB: {
+  prepare() { return { bind() { return this; }, async run() {} }; },
+  async batch() {},
+} };
+const loginRequest = (password = baseEnv.ADMIN_PASSWORD, token = '') => new Request('https://example.com/admin/login', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username: 'demo', password, turnstile_token: token }),
+});
+const optionalPage = await context.worker.fetch(new Request('https://example.com/admin/login'), baseEnv);
+assert.equal(optionalPage.status, 200);
+const optionalHtml = await optionalPage.text();
+assert.doesNotMatch(optionalHtml, /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js|class="cf-turnstile"/);
+assert.match(optionalHtml, /if \(false && !turnstileToken\)/);
+verificationRequest = undefined;
+const login = await context.worker.fetch(loginRequest(), baseEnv);
+assert.equal(login.status, 200);
+assert.equal((await login.json()).success, true);
+assert.match(login.headers.get('set-cookie'), /HttpOnly; SameSite=Strict;.*Secure/);
+assert.equal(verificationRequest, undefined);
+assert.equal((await context.worker.fetch(loginRequest('wrong'), baseEnv)).status, 401);
+for (const partial of [{ TURNSTILE_SITE_KEY: 'site' }, { TURNSTILE_SECRET_KEY: 'secret' }]) {
+  const env = { ...baseEnv, ...partial };
+  assert.equal((await context.worker.fetch(new Request('https://example.com/admin/login'), env)).status, 503);
+  assert.equal((await context.worker.fetch(loginRequest(), env)).status, 503);
+}
+const enabledEnv = { ...baseEnv, TURNSTILE_SITE_KEY: 'site', TURNSTILE_SECRET_KEY: 'secret' };
+assert.equal((await context.worker.fetch(loginRequest(), enabledEnv)).status, 403);
+verificationResult = { success: false };
+assert.equal((await context.worker.fetch(loginRequest(baseEnv.ADMIN_PASSWORD, 'token'), enabledEnv)).status, 403);
+verificationResult = { success: true, hostname: 'example.com', action: 'login' };
+assert.equal((await context.worker.fetch(loginRequest(baseEnv.ADMIN_PASSWORD, 'token'), enabledEnv)).status, 200);
+assert.equal((await context.worker.fetch(new Request('https://example.com/admin'), { ...baseEnv, ADMIN_PASSWORD: '' })).status, 503);
+
+console.log(JSON.stringify({ passed: true, htmlBytes: html.length, optionalLogin: true }, null, 2));

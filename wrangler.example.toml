@@ -5,7 +5,7 @@ compatibility_date = "2026-01-10"
 [vars]
 ADMIN_PATH = "admin"
 # 在 Cloudflare 配置的公开站点密钥，替换此占位符。
-TURNSTILE_SITE_KEY = "YOUR_TURNSTILE_SITE_KEY"
+TURNSTILE_SITE_KEY = "" # 可选，推荐配置；同时添加 TURNSTILE_SECRET_KEY 密钥
 TURNSTILE_HOSTNAME = ""
 
 [[d1_databases]]

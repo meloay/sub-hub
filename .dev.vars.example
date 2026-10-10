@@ -1,4 +1,5 @@
 # 仅声明密钥名称，不提供默认登录凭据。部署时由用户填写。
 ADMIN_USERNAME=
 ADMIN_PASSWORD=
-TURNSTILE_SECRET_KEY=
+# Turnstile 可选：启用时再单独添加 TURNSTILE_SECRET_KEY 密钥，
+# 并同时设置 TURNSTILE_SITE_KEY 变量；不启用则两项都不设置。

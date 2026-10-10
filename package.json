@@ -18,8 +18,8 @@
       "ADMIN_PATH": { "description": "管理页面路径，默认 admin。部署后访问 /admin。" },
       "ADMIN_USERNAME": { "description": "设置自己的管理用户名；没有默认账号。" },
       "ADMIN_PASSWORD": { "description": "设置独立的强密码；不得使用示例密码或留空。" },
-      "TURNSTILE_SITE_KEY": { "description": "在 Cloudflare Turnstile 创建站点后填写公开 Site Key。允许域名必须包含部署后的实际主机名。" },
-      "TURNSTILE_SECRET_KEY": { "description": "同一 Turnstile 站点的 Secret Key，仅作为密钥保存，不要提交到仓库。" },
+      "TURNSTILE_SITE_KEY": { "description": "可选，推荐配置。留空且不设置 Secret Key 时关闭验证；启用时填写自己站点的公开 Site Key，并添加对应 Secret Key。" },
+      "TURNSTILE_SECRET_KEY": { "description": "可选，启用 Turnstile 时手动添加的 Secret Key，必须与 Site Key 成对配置；不要提交到仓库。" },
       "TURNSTILE_HOSTNAME": { "description": "可选：固定校验的主机名，不含 https 或路径；留空时严格匹配当前访问域名。" }
     }
   },
